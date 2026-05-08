@@ -1,0 +1,15 @@
+agno
+anthropic
+openai
+supabase
+playwright
+yt-dlp
+moviepy
+elevenlabs
+google-generativeai
+python-dotenv
+requests
+Pillow
+beautifulsoup4
+lxml
+pytest

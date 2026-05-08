@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Affiliate Agent Dashboard</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .card {
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .card h3 {
+            margin-top: 0;
+            color: #aaaaaa;
+            font-size: 1em;
+        }
+        .card p {
+            margin: 10px 0 0;
+            font-size: 2em;
+            font-weight: bold;
+        }
+        .earning-green {
+            color: #4caf50;
+        }
+        .agents-section {
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .agent-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #333;
+        }
+        .agent-row:last-child {
+            border-bottom: none;
+        }
+        .dot {
+            height: 12px;
+            width: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 10px;
+        }
+        .dot-green {
+            background-color: #4caf50;
+        }
+        .dot-red {
+            background-color: #f44336;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>AI Affiliate System Dashboard</h1>
+
+    <div class="card-grid">
+        <div class="card">
+            <h3>Today's Earnings</h3>
+            <p id="today-earnings" class="earning-green">₹0</p>
+        </div>
+        <div class="card">
+            <h3>Month's Earnings</h3>
+            <p id="month-earnings" class="earning-green">₹0</p>
+        </div>
+        <div class="card">
+            <h3>Total Reels Posted</h3>
+            <p id="total-reels">0</p>
+        </div>
+        <div class="card">
+            <h3>Today's Product</h3>
+            <p id="today-product" style="font-size: 1.2em;">Loading...</p>
+        </div>
+    </div>
+
+    <div class="agents-section">
+        <h2>Agent Status</h2>
+        <div id="agents-list">
+            <!-- Populated via JS -->
+        </div>
+    </div>
+</div>
+
+<script>
+    // USER CONFIGURATION
+    const SUPABASE_URL = 'your_supabase_project_url';
+    const SUPABASE_KEY = 'your_supabase_anon_key';
+
+    const headers = {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json'
+    };
+
+    async function fetchData() {
+        if (SUPABASE_URL === 'your_supabase_project_url') {
+            document.getElementById('today-product').innerText = 'Please configure Supabase URL and Key';
+            return;
+        }
+
+        const today = new Date().toISOString().split('T')[0];
+        const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+
+        try {
+            // 1. Today's Earnings
+            const earningsRes = await fetch(`${SUPABASE_URL}/rest/v1/earnings?date=eq.${today}&select=commission_inr`, { headers });
+            const earningsData = await earningsRes.json();
+            const todayTotal = earningsData.reduce((acc, curr) => acc + curr.commission_inr, 0);
+            document.getElementById('today-earnings').innerText = `₹${todayTotal}`;
+
+            // 2. Month's Earnings
+            const monthRes = await fetch(`${SUPABASE_URL}/rest/v1/earnings?date=gte.${monthStart}&select=commission_inr`, { headers });
+            const monthData = await monthRes.json();
+            const monthTotal = monthData.reduce((acc, curr) => acc + curr.commission_inr, 0);
+            document.getElementById('month-earnings').innerText = `₹${monthTotal}`;
+
+            // 3. Total Reels Posted
+            const reelsRes = await fetch(`${SUPABASE_URL}/rest/v1/reels?status=eq.posted&select=id`, { headers });
+            const reelsData = await reelsRes.json();
+            document.getElementById('total-reels').innerText = reelsData.length;
+
+            // 4. Today's Product
+            const todayReelRes = await fetch(`${SUPABASE_URL}/rest/v1/reels?status=eq.posted&posted_at=gte.${today}T00:00:00&select=product_id`, { headers });
+            const todayReelData = await todayReelRes.json();
+
+            if (todayReelData.length > 0) {
+                const productId = todayReelData[0].product_id;
+                const productRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}&select=name`, { headers });
+                const productData = await productRes.json();
+                if(productData.length > 0) {
+                    document.getElementById('today-product').innerText = productData[0].name;
+                }
+            } else {
+                document.getElementById('today-product').innerText = 'None yet';
+            }
+
+            // 5. Agent Status
+            const agents = ['research_agent', 'content_agent', 'post_agent', 'track_agent'];
+            const agentsListHtml = [];
+            const now = new Date();
+
+            for (const agent of agents) {
+                const logsRes = await fetch(`${SUPABASE_URL}/rest/v1/agent_logs?agent_name=eq.${agent}&order=created_at.desc&limit=1`, { headers });
+                const logsData = await logsRes.json();
+
+                let dotClass = 'dot-red';
+                let lastRunText = 'Never';
+
+                if (logsData.length > 0) {
+                    const lastRun = new Date(logsData[0].created_at);
+                    lastRunText = lastRun.toLocaleString();
+
+                    // Check if run within last 2 hours
+                    const diffHours = (now - lastRun) / (1000 * 60 * 60);
+                    if (diffHours < 2) {
+                        dotClass = 'dot-green';
+                    }
+                }
+
+                agentsListHtml.push(`
+                    <div class="agent-row">
+                        <div>
+                            <span class="dot ${dotClass}"></span>
+                            <strong>${agent.replace('_', ' ').toUpperCase()}</strong>
+                        </div>
+                        <div>Last run: ${lastRunText}</div>
+                    </div>
+                `);
+            }
+
+            document.getElementById('agents-list').innerHTML = agentsListHtml.join('');
+
+        } catch (error) {
+            console.error('Error fetching data:', error);
+            document.getElementById('today-product').innerText = 'Error loading data';
+        }
+    }
+
+    fetchData();
+    // Refresh every 5 minutes
+    setInterval(fetchData, 5 * 60 * 1000);
+
+</script>
+
+</body>
+</html>

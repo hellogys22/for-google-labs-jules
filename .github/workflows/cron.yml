@@ -1,0 +1,108 @@
+name: Automated Agents Cron
+
+on:
+  schedule:
+    - cron: '30 0 * * *'  # 6:00 AM IST (research_agent)
+    - cron: '30 2 * * *'  # 8:00 AM IST (content_agent)
+    - cron: '30 3 * * *'  # 9:00 AM IST (post_agent)
+    - cron: '30 16 * * *' # 10:00 PM IST (track_agent)
+  workflow_dispatch:
+
+jobs:
+  research_agent:
+    if: github.event.schedule == '30 0 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg libsm6 libxext6
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          playwright install chromium
+          playwright install-deps
+      - run: python main.py --run agent1
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PRIMARY_GEMINI_API_KEY: ${{ secrets.PRIMARY_GEMINI_API_KEY }}
+          SECONDARY_GEMINI_API_KEY: ${{ secrets.SECONDARY_GEMINI_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          INSTAGRAM_ACCOUNT_ID: ${{ secrets.INSTAGRAM_ACCOUNT_ID }}
+          MEESHO_AFFILIATE_EMAIL: ${{ secrets.MEESHO_AFFILIATE_EMAIL }}
+          MEESHO_AFFILIATE_PASSWORD: ${{ secrets.MEESHO_AFFILIATE_PASSWORD }}
+          DEODAP_AFFILIATE_EMAIL: ${{ secrets.DEODAP_AFFILIATE_EMAIL }}
+          DEODAP_AFFILIATE_PASSWORD: ${{ secrets.DEODAP_AFFILIATE_PASSWORD }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+  content_agent:
+    if: github.event.schedule == '30 2 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg libsm6 libxext6
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - run: python main.py --run agent2
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PRIMARY_GEMINI_API_KEY: ${{ secrets.PRIMARY_GEMINI_API_KEY }}
+          SECONDARY_GEMINI_API_KEY: ${{ secrets.SECONDARY_GEMINI_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+
+  post_agent:
+    if: github.event.schedule == '30 3 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - run: python main.py --run agent3
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          INSTAGRAM_ACCOUNT_ID: ${{ secrets.INSTAGRAM_ACCOUNT_ID }}
+
+  track_agent:
+    if: github.event.schedule == '30 16 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          playwright install chromium
+          playwright install-deps
+      - run: python main.py --run agent4
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          MEESHO_AFFILIATE_EMAIL: ${{ secrets.MEESHO_AFFILIATE_EMAIL }}
+          MEESHO_AFFILIATE_PASSWORD: ${{ secrets.MEESHO_AFFILIATE_PASSWORD }}
+          DEODAP_AFFILIATE_EMAIL: ${{ secrets.DEODAP_AFFILIATE_EMAIL }}
+          DEODAP_AFFILIATE_PASSWORD: ${{ secrets.DEODAP_AFFILIATE_PASSWORD }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

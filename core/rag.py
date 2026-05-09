@@ -1,18 +1,10 @@
 import os
 import openai
-from supabase import create_client, Client
 from dotenv import load_dotenv
 
-load_dotenv()
+from core.db import get_db
 
-# Initialize Supabase client
-supabase_url = os.environ.get("SUPABASE_URL")
-supabase_key = os.environ.get("SUPABASE_KEY")
-if supabase_url and supabase_key:
-    supabase: Client = create_client(supabase_url, supabase_key)
-else:
-    supabase = None
-    print("Warning: SUPABASE_URL or SUPABASE_KEY not found in environment variables.")
+load_dotenv()
 
 # Initialize OpenAI client
 openai_api_key = os.environ.get("OPENAI_API_KEY")
@@ -24,11 +16,12 @@ else:
 def search_products(query_text: str, match_count: int = 3) -> list:
     """
     Embed query_text using OpenAI text-embedding-3-small.
-    Call Supabase match_products() RPC with the embedding.
+    Call MongoDB Atlas $vectorSearch pipeline with the embedding.
     Return list of matching product dicts with id, name, similarity score.
     """
-    if not supabase:
-        raise ValueError("Supabase client not initialized")
+    db = get_db()
+    if db is None:
+        raise ValueError("Database client not initialized")
     if not openai.api_key:
         raise ValueError("OpenAI API key not initialized")
 
@@ -40,16 +33,35 @@ def search_products(query_text: str, match_count: int = 3) -> list:
         )
         query_embedding = response.data[0].embedding
 
-        # 2. Call Supabase RPC
-        # The RPC function `match_products` needs to be defined in Supabase
-        # to accept `query_embedding` and `match_count`
-        rpc_response = supabase.rpc(
-            "match_products",
-            {"query_embedding": query_embedding, "match_count": match_count}
-        ).execute()
+        # 2. Call MongoDB $vectorSearch
+        # Note: Requires an Atlas Vector Search index named 'vector_index' configured on the 'embedding' field
+        pipeline = [
+            {
+                "$vectorSearch": {
+                    "index": "vector_index",
+                    "path": "embedding",
+                    "queryVector": query_embedding,
+                    "numCandidates": match_count * 10,
+                    "limit": match_count
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "id": 1,
+                    "name": 1,
+                    "price": 1,
+                    "platform": 1,
+                    "image_url": 1,
+                    "similarity": {"$meta": "vectorSearchScore"}
+                }
+            }
+        ]
+
+        results = list(db.products.aggregate(pipeline))
 
         # 3. Return results
-        return rpc_response.data
+        return results
 
     except Exception as e:
         print(f"Error in search_products: {e}")

@@ -8,11 +8,12 @@ from agents.post_agent import post_to_instagram
 class TestPostAgent(unittest.TestCase):
 
     @patch('agents.post_agent.requests.post')
+    @patch('agents.post_agent.get_db')
     @patch('agents.post_agent.requests.get')
     @patch('agents.post_agent.time.sleep') # mock sleep so tests run fast
     @patch('agents.post_agent.access_token', 'test_token')
     @patch('agents.post_agent.account_id', 'test_account')
-    def test_post_to_instagram_success(self, mock_sleep, mock_get, mock_post):
+    def test_post_to_instagram_success(self, mock_sleep, mock_get, mock_get_db, mock_post):
         """Test the successful flow of posting to Instagram."""
         # 1. Mock create media container
         mock_create_response = MagicMock()

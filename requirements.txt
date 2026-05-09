@@ -1,7 +1,7 @@
 agno
 anthropic
 openai
-supabase
+pymongo
 playwright
 yt-dlp
 moviepy

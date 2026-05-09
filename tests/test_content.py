@@ -47,6 +47,7 @@ class TestContentAgent(unittest.TestCase):
             if os.path.exists(output_path):
                 os.remove(output_path)
 
+    @patch('agents.content_agent.get_db')
     @patch('core.video_editor.CompositeVideoClip')
     @patch('core.video_editor.CompositeAudioClip')
     @patch('core.video_editor.TextClip')
@@ -54,7 +55,7 @@ class TestContentAgent(unittest.TestCase):
     @patch('core.video_editor.VideoFileClip')
     @patch('os.path.exists')
     @patch('os.makedirs')
-    def test_moviepy_pipeline(self, mock_makedirs, mock_exists, mock_video, mock_audio, mock_text, mock_comp_audio, mock_composite):
+    def test_moviepy_pipeline(self, mock_makedirs, mock_exists, mock_video, mock_audio, mock_text, mock_comp_audio, mock_composite, mock_get_db):
         """Mock MoviePy to ensure it pieces things together without actual rendering."""
         # We mock ImageMagick text clip creation which fails if not installed
         # Since `AudioLoop` is conditionally imported inside the function, we use `patch` as a context manager inside the function if needed
@@ -90,6 +91,9 @@ class TestContentAgent(unittest.TestCase):
         mock_text_instance.set_duration.return_value = mock_text_instance
         mock_text_instance.set_start.return_value = mock_text_instance
         mock_text.return_value = mock_text_instance
+
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
 
         output_path = "tests/test_reel.mp4"
 

@@ -2,50 +2,44 @@ import os
 import time
 from datetime import datetime
 import requests
-from supabase import create_client, Client
 from dotenv import load_dotenv
 from agno.agent import Agent
 
-load_dotenv()
+from core.db import get_db
 
-supabase_url = os.environ.get("SUPABASE_URL")
-supabase_key = os.environ.get("SUPABASE_KEY")
-if supabase_url and supabase_key:
-    supabase: Client = create_client(supabase_url, supabase_key)
-else:
-    supabase = None
+load_dotenv()
 
 access_token = os.environ.get("INSTAGRAM_ACCESS_TOKEN")
 account_id = os.environ.get("INSTAGRAM_ACCOUNT_ID")
 
 def log_agent_action(status: str, message: str):
-    if not supabase:
+    db = get_db()
+    if db is None:
         print(f"Log (local): {status} - {message}")
         return
     try:
-        supabase.table("agent_logs").insert({
+        db.agent_logs.insert_one({
             "agent_name": "post_agent",
             "status": status,
             "message": message,
-            "created_at": datetime.utcnow().isoformat()
-        }).execute()
+            "created_at": datetime.utcnow()
+        })
     except Exception as e:
         print(f"Failed to log action: {e}")
 
 def get_today_reel():
-    if not supabase:
+    db = get_db()
+    if db is None:
         return None
     try:
-        today_start = datetime.utcnow().strftime("%Y-%m-%dT00:00:00")
-        response = supabase.table('reels') \
-            .select('*') \
-            .eq('status', 'ready') \
-            .gte('created_at', today_start) \
-            .execute()
+        # Start of day
+        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
-        if response.data:
-            return response.data[0]
-        return None
+        reel = db.reels.find_one({
+            'status': 'ready',
+            'created_at': {'$gte': today_start}
+        })
+        return reel
     except Exception as e:
         print(f"Error fetching reel: {e}")
         return None
@@ -148,12 +142,16 @@ def run(dry_run=False):
         post_id = post_to_instagram(video_url, caption)
         print(f"Successfully posted! ID: {post_id}")
 
-        if supabase:
-            supabase.table('reels').update({
-                'status': 'posted',
-                'instagram_post_id': post_id,
-                'posted_at': datetime.utcnow().isoformat()
-            }).eq('id', reel['id']).execute()
+        db = get_db()
+        if db is not None:
+            db.reels.update_one(
+                {'_id': reel['_id']},
+                {'$set': {
+                    'status': 'posted',
+                    'instagram_post_id': post_id,
+                    'posted_at': datetime.utcnow()
+                }}
+            )
 
         log_agent_action("success", f"Posted reel successfully. ID: {post_id}")
 

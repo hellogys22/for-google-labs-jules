@@ -2,7 +2,6 @@ import os
 import json
 from datetime import datetime
 import anthropic
-from supabase import create_client, Client
 from dotenv import load_dotenv
 
 from core.rag import search_products
@@ -10,29 +9,24 @@ from core.elevenlabs_tts import generate_voiceover
 from core.video_editor import build_reel, build_slideshow
 from core.veo3 import generate_video
 from agno.agent import Agent
+from core.db import get_db
 
 load_dotenv()
-
-supabase_url = os.environ.get("SUPABASE_URL")
-supabase_key = os.environ.get("SUPABASE_KEY")
-if supabase_url and supabase_key:
-    supabase: Client = create_client(supabase_url, supabase_key)
-else:
-    supabase = None
 
 anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY")
 
 def log_agent_action(status: str, message: str):
-    if not supabase:
+    db = get_db()
+    if db is None:
         print(f"Log (local): {status} - {message}")
         return
     try:
-        supabase.table("agent_logs").insert({
+        db.agent_logs.insert_one({
             "agent_name": "content_agent",
             "status": status,
             "message": message,
-            "created_at": datetime.utcnow().isoformat()
-        }).execute()
+            "created_at": datetime.utcnow()
+        })
     except Exception as e:
         print(f"Failed to log action: {e}")
 
@@ -178,17 +172,18 @@ def run():
         log_agent_action("error", f"Video pipeline failed: {e}")
         return
 
-    # 5. Save to Supabase
-    if supabase:
+    # 5. Save to MongoDB
+    db = get_db()
+    if db is not None:
         try:
-            supabase.table('reels').insert({
+            db.reels.insert_one({
                 'product_id': product_id,
                 'script_json': script,
                 'video_path': output_path,
                 'audio_path': audio_path,
                 'status': 'ready',
-                'created_at': datetime.utcnow().isoformat()
-            }).execute()
+                'created_at': datetime.utcnow()
+            })
         except Exception as e:
             log_agent_action("error", f"Failed to save reel metadata: {e}")
             return

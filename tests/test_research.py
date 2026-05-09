@@ -30,12 +30,12 @@ class TestResearchAgent(unittest.TestCase):
 
         self.assertEqual(score, expected_score)
 
-    @patch('agents.research_agent.supabase')
+    @patch('agents.research_agent.get_db')
     @patch('agents.research_agent.sync_playwright')
     @patch('agents.research_agent.get_embedding')
     @patch('agents.research_agent.download_video')
-    def test_supabase_insert(self, mock_download, mock_embed, mock_pw, mock_supabase):
-        """Test that the script inserts the correct number of top products into Supabase."""
+    def test_mongodb_insert(self, mock_download, mock_embed, mock_pw, mock_get_db):
+        """Test that the script inserts the correct number of top products into MongoDB."""
         mock_embed.return_value = [0.1] * 1536
         mock_download.return_value = "videos/raw/test.mp4"
 
@@ -44,14 +44,15 @@ class TestResearchAgent(unittest.TestCase):
         mock_pw.return_value.__enter__.return_value.chromium.launch.return_value = mock_browser
         mock_browser.new_page.return_value = mock_page
 
-        mock_table = MagicMock()
-        mock_supabase.table.return_value = mock_table
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
 
         run()
 
         # We know mock data gives 3 valid products total, so it should insert all 3
-        # Agent logs once at start, once at end, and table('products').insert is called 3 times.
-        self.assertTrue(mock_supabase.table.called)
+        # Agent logs once at start, once at end, and db.products.insert_one is called 3 times.
+        self.assertEqual(mock_db.products.insert_one.call_count, 3)
+        self.assertEqual(mock_db.agent_logs.insert_one.call_count, 2)
 
 if __name__ == '__main__':
     unittest.main()

@@ -109,18 +109,39 @@
 
 <script>
     // USER CONFIGURATION
-    const SUPABASE_URL = 'your_supabase_project_url';
-    const SUPABASE_KEY = 'your_supabase_anon_key';
+    const MONGO_DATA_API_URL = 'your_mongodb_data_api_url/action';
+    const MONGO_DATA_API_KEY = 'your_mongodb_data_api_key';
+    const DATA_SOURCE = 'your_cluster_name';
+    const DATABASE = 'affiliate_agent';
 
     const headers = {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Access-Control-Request-Headers': '*',
+        'api-key': MONGO_DATA_API_KEY
     };
 
+    async function callMongoAPI(action, collection, filter = {}, sort = null, limit = null, projection = null) {
+        const payload = {
+            dataSource: DATA_SOURCE,
+            database: DATABASE,
+            collection: collection,
+            filter: filter
+        };
+        if (sort) payload.sort = sort;
+        if (limit) payload.limit = limit;
+        if (projection) payload.projection = projection;
+
+        const res = await fetch(`${MONGO_DATA_API_URL}/${action}`, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(payload)
+        });
+        return res.json();
+    }
+
     async function fetchData() {
-        if (SUPABASE_URL === 'your_supabase_project_url') {
-            document.getElementById('today-product').innerText = 'Please configure Supabase URL and Key';
+        if (MONGO_DATA_API_URL === 'your_mongodb_data_api_url/action') {
+            document.getElementById('today-product').innerText = 'Please configure MongoDB Data API URL and Key';
             return;
         }
 
@@ -129,32 +150,32 @@
 
         try {
             // 1. Today's Earnings
-            const earningsRes = await fetch(`${SUPABASE_URL}/rest/v1/earnings?date=eq.${today}&select=commission_inr`, { headers });
-            const earningsData = await earningsRes.json();
-            const todayTotal = earningsData.reduce((acc, curr) => acc + curr.commission_inr, 0);
+            const earningsRes = await callMongoAPI('find', 'earnings', { date: today }, null, null, { commission_inr: 1 });
+            const todayTotal = (earningsRes.documents || []).reduce((acc, curr) => acc + (curr.commission_inr || 0), 0);
             document.getElementById('today-earnings').innerText = `₹${todayTotal}`;
 
             // 2. Month's Earnings
-            const monthRes = await fetch(`${SUPABASE_URL}/rest/v1/earnings?date=gte.${monthStart}&select=commission_inr`, { headers });
-            const monthData = await monthRes.json();
-            const monthTotal = monthData.reduce((acc, curr) => acc + curr.commission_inr, 0);
+            const monthRes = await callMongoAPI('find', 'earnings', { date: { $gte: monthStart } }, null, null, { commission_inr: 1 });
+            const monthTotal = (monthRes.documents || []).reduce((acc, curr) => acc + (curr.commission_inr || 0), 0);
             document.getElementById('month-earnings').innerText = `₹${monthTotal}`;
 
             // 3. Total Reels Posted
-            const reelsRes = await fetch(`${SUPABASE_URL}/rest/v1/reels?status=eq.posted&select=id`, { headers });
-            const reelsData = await reelsRes.json();
-            document.getElementById('total-reels').innerText = reelsData.length;
+            const reelsCountRes = await callMongoAPI('aggregate', 'reels', undefined, undefined, undefined, undefined);
+            // using find since count isn't standard in basic Data API endpoints, pulling ids to count
+            const reelsRes = await callMongoAPI('find', 'reels', { status: 'posted' }, null, null, { _id: 1 });
+            document.getElementById('total-reels').innerText = (reelsRes.documents || []).length;
 
             // 4. Today's Product
-            const todayReelRes = await fetch(`${SUPABASE_URL}/rest/v1/reels?status=eq.posted&posted_at=gte.${today}T00:00:00&select=product_id`, { headers });
-            const todayReelData = await todayReelRes.json();
+            const todayStart = new Date();
+            todayStart.setUTCHours(0,0,0,0);
 
-            if (todayReelData.length > 0) {
-                const productId = todayReelData[0].product_id;
-                const productRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}&select=name`, { headers });
-                const productData = await productRes.json();
-                if(productData.length > 0) {
-                    document.getElementById('today-product').innerText = productData[0].name;
+            const todayReelRes = await callMongoAPI('find', 'reels', { status: 'posted', posted_at: { $gte: { "$date": todayStart.toISOString() } } });
+
+            if (todayReelRes.documents && todayReelRes.documents.length > 0) {
+                const productId = todayReelRes.documents[0].product_id;
+                const productRes = await callMongoAPI('findOne', 'products', { id: productId });
+                if(productRes.document) {
+                    document.getElementById('today-product').innerText = productRes.document.name;
                 }
             } else {
                 document.getElementById('today-product').innerText = 'None yet';
@@ -166,14 +187,15 @@
             const now = new Date();
 
             for (const agent of agents) {
-                const logsRes = await fetch(`${SUPABASE_URL}/rest/v1/agent_logs?agent_name=eq.${agent}&order=created_at.desc&limit=1`, { headers });
-                const logsData = await logsRes.json();
+                const logsRes = await callMongoAPI('find', 'agent_logs', { agent_name: agent }, { created_at: -1 }, 1);
 
                 let dotClass = 'dot-red';
                 let lastRunText = 'Never';
 
-                if (logsData.length > 0) {
-                    const lastRun = new Date(logsData[0].created_at);
+                if (logsRes.documents && logsRes.documents.length > 0) {
+                    // Handle MongoDB Data API date format
+                    const dateStr = logsRes.documents[0].created_at.$date || logsRes.documents[0].created_at;
+                    const lastRun = new Date(dateStr);
                     lastRunText = lastRun.toLocaleString();
 
                     // Check if run within last 2 hours

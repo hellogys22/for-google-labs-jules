@@ -4,21 +4,13 @@ import uuid
 from datetime import datetime
 from playwright.sync_api import sync_playwright
 import openai
-from supabase import create_client, Client
 from dotenv import load_dotenv
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 
-load_dotenv()
+from core.db import get_db
 
-# Supabase Initialization
-supabase_url = os.environ.get("SUPABASE_URL")
-supabase_key = os.environ.get("SUPABASE_KEY")
-if supabase_url and supabase_key:
-    supabase: Client = create_client(supabase_url, supabase_key)
-else:
-    supabase = None
-    print("Warning: Supabase credentials not found.")
+load_dotenv()
 
 # OpenAI Initialization
 openai_api_key = os.environ.get("OPENAI_API_KEY")
@@ -28,17 +20,18 @@ else:
     print("Warning: OPENAI_API_KEY not found.")
 
 def log_agent_action(status: str, message: str):
-    """Log an action to the agent_logs table."""
-    if not supabase:
+    """Log an action to the agent_logs collection."""
+    db = get_db()
+    if db is None:
         print(f"Log (local): {status} - {message}")
         return
     try:
-        supabase.table("agent_logs").insert({
+        db.agent_logs.insert_one({
             "agent_name": "research_agent",
             "status": status,
             "message": message,
-            "created_at": datetime.utcnow().isoformat()
-        }).execute()
+            "created_at": datetime.utcnow()
+        })
     except Exception as e:
         print(f"Failed to log action: {e}")
 
@@ -179,9 +172,10 @@ def run():
             text_to_embed = f"{p['name']} {p['platform']} Home Kitchen gadget price {p['price']} rating {p['rating']} viral"
             embedding = get_embedding(text_to_embed)
 
-            # Save to Supabase
-            if supabase:
-                supabase.table('products').insert({
+            # Save to MongoDB
+            db = get_db()
+            if db is not None:
+                db.products.insert_one({
                     'id': p['id'],
                     'name': p['name'],
                     'price': p['price'],
@@ -192,8 +186,8 @@ def run():
                     'video_path': video_path,
                     'embedding': embedding,
                     'performance_score': 0.5,
-                    'created_at': datetime.utcnow().isoformat()
-                }).execute()
+                    'created_at': datetime.utcnow()
+                })
                 print(f"Inserted product: {p['name']}")
 
         except Exception as e:

@@ -3,7 +3,18 @@ import sys
 
 from agents import research_agent, content_agent, post_agent, track_agent
 
+import os
+from dotenv import load_dotenv
+
+def check_env_vars():
+    load_dotenv()
+    if not os.environ.get("MONGODB_URI"):
+        print("Warning: MONGODB_URI is not set. Database connections will fail.")
+    if not os.environ.get("OPENAI_API_KEY"):
+        print("Warning: OPENAI_API_KEY is not set. RAG embeddings will be skipped or fail.")
+
 def main():
+    check_env_vars()
     parser = argparse.ArgumentParser(description="AI Affiliate Agent System")
     parser.add_argument('--run', type=str, choices=['agent1', 'agent2', 'agent3', 'agent4'],
                         help='Specify which agent to run (agent1=research, agent2=content, agent3=post, agent4=track)')

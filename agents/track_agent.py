@@ -155,8 +155,7 @@ def run_agent():
         name="TrackAgent",
         description="Tracks affiliate earnings and updates the database.",
         instructions=["Execute the run function to start tracking."],
-        tools=[run],
-        show_tool_calls=True,
+        tools=[run]
     )
     agent.print_response("Track today's affiliate dashboard earnings.")
 

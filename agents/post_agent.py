@@ -163,8 +163,7 @@ def run_agent(dry_run=False):
         name="PostAgent",
         description="Posts ready video reels to Instagram.",
         instructions=["Execute the run function to post the video."],
-        tools=[lambda: run(dry_run=dry_run)],
-        show_tool_calls=True,
+        tools=[lambda: run(dry_run=dry_run)]
     )
     agent.print_response("Post today's video reel to Instagram.")
 

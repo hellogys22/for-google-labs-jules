@@ -196,8 +196,7 @@ def run_agent():
         name="ContentAgent",
         description="Generates scripts and video reels based on top products.",
         instructions=["Execute the run function to start the content generation process."],
-        tools=[run],
-        show_tool_calls=True,
+        tools=[run]
     )
     agent.print_response("Generate today's video reel.")
 

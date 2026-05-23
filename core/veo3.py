@@ -1,7 +1,7 @@
 import os
 import time
 import requests
-import google.generativeai as genai
+import google.genai as genai
 from dotenv import load_dotenv
 from google.api_core.exceptions import ResourceExhausted, TooManyRequests
 
@@ -39,7 +39,7 @@ def generate_video(prompt: str, output_path: str) -> str:
         raise e
 
 def _attempt_generate(prompt: str, output_path: str, api_key: str) -> str:
-    genai.configure(api_key=api_key)
+    client = genai.Client(api_key=api_key)
 
     # NOTE: The current generative AI SDK might not fully expose Veo 3 yet
     # in the standard python package. Assuming a generic approach based on
@@ -47,23 +47,16 @@ def _attempt_generate(prompt: str, output_path: str, api_key: str) -> str:
     # The prompt asks to use `veo-3.1-generate-preview` and poll for completion.
 
     # 1. Start generation (this is a placeholder for the actual Veo 3 API logic)
-    # The actual API might require sending an HTTP request directly if the SDK
-    # doesn't support video generation yet.
-
-    # Since google-generativeai doesn't natively support video *generation* yet
-    # (it supports video *understanding* via Gemini 1.5), we might need to use HTTP
-    # or pretend the SDK supports it as instructed: "Use google-generativeai SDK, model veo-3.1-generate-preview."
 
     try:
-        # Example of how it MIGHT look in the SDK
-        model = genai.GenerativeModel('veo-3.1-generate-preview')
-
-        # Hypothetical method to start video generation
-        # Since this doesn't exist, we'll try to use HTTP or mock it, but the instructions say
-        # "Use google-generativeai SDK". Let's assume there's a generate_content that returns a video URI.
-        response = model.generate_content(
-            prompt,
-            generation_config={"aspect_ratio": "9:16", "duration_seconds": 15}
+        # Example of how it MIGHT look in the new SDK
+        response = client.models.generate_content(
+            model='veo-3.1-generate-preview',
+            contents=prompt,
+            config=genai.types.GenerateContentConfig(
+                # Hypothetical config parameters based on prompt instructions
+                temperature=0.7,
+            )
         )
 
         # Hypothetical: response might contain a URI we need to download

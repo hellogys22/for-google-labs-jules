@@ -200,8 +200,7 @@ def run_agent():
         name="ResearchAgent",
         description="Scrapes ecommerce sites to find the best viral products.",
         instructions=["Execute the run function to start the scraping process."],
-        tools=[run],
-        show_tool_calls=True,
+        tools=[run]
     )
     if openai.api_key:
         agent.model = OpenAIChat(id="gpt-4o")

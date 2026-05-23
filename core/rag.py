@@ -23,7 +23,8 @@ def search_products(query_text: str, match_count: int = 3) -> list:
     if db is None:
         raise ValueError("Database client not initialized")
     if not openai.api_key:
-        raise ValueError("OpenAI API key not initialized")
+        print("Warning: OpenAI API key not initialized. RAG search will be skipped.")
+        return []
 
     try:
         # 1. Embed the query text
